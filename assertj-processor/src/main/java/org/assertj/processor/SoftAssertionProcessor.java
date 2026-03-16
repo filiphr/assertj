@@ -97,24 +97,30 @@ public class SoftAssertionProcessor extends AbstractProcessor {
   }
 
   private void processAssertionsClass(TypeElement assertionsClass) {
-    List<ExecutableElement> entryPoints = new ArrayList<>();
+    List<ExecutableElement> assertEntryPoints = new ArrayList<>();
+    List<ExecutableElement> throwableTypeEntryPoints = new ArrayList<>();
 
     for (ExecutableElement method : ElementFilter.methodsIn(assertionsClass.getEnclosedElements())) {
       if (!method.getModifiers().contains(Modifier.PUBLIC)) continue;
       if (!method.getModifiers().contains(Modifier.STATIC)) continue;
-      if (!returnsAbstractAssertSubtype(method)) continue;
 
-      entryPoints.add(method);
+      if (isAbstractAssertSubtype(method.getReturnType())) {
+        assertEntryPoints.add(method);
+      } else if (returnsThrowableTypeAssert(method.getReturnType())) {
+        throwableTypeEntryPoints.add(method);
+      }
     }
 
-    if (!entryPoints.isEmpty()) {
-      writeInterface("GeneratedStandardSoftAssertionsProvider", entryPoints, false);
-      writeInterface("GeneratedBDDSoftAssertionsProvider", entryPoints, true);
+    if (!assertEntryPoints.isEmpty() || !throwableTypeEntryPoints.isEmpty()) {
+      writeInterface("GeneratedStandardSoftAssertionsProvider", assertEntryPoints, throwableTypeEntryPoints, false);
+      writeInterface("GeneratedBDDSoftAssertionsProvider", assertEntryPoints, throwableTypeEntryPoints, true);
     }
   }
 
-  private boolean returnsAbstractAssertSubtype(ExecutableElement method) {
-    return isAbstractAssertSubtype(method.getReturnType());
+  private boolean returnsThrowableTypeAssert(TypeMirror type) {
+    if (type.getKind() != TypeKind.DECLARED) return false;
+    TypeElement element = (TypeElement) ((DeclaredType) type).asElement();
+    return element.getSimpleName().toString().equals("ThrowableTypeAssert");
   }
 
   private boolean isAbstractAssertSubtype(TypeMirror type) {
@@ -130,14 +136,22 @@ public class SoftAssertionProcessor extends AbstractProcessor {
     return false;
   }
 
-  private void writeInterface(String interfaceName, List<ExecutableElement> methods, boolean bdd) {
+  private void writeInterface(String interfaceName, List<ExecutableElement> assertMethods,
+                              List<ExecutableElement> throwableTypeMethods, boolean bdd) {
     TypeSpec.Builder interfaceBuilder = TypeSpec.interfaceBuilder(interfaceName)
         .addModifiers(Modifier.PUBLIC)
         .addSuperinterface(SOFT_ASSERTIONS_PROVIDER)
         .addAnnotation(CHECK_RETURN_VALUE);
 
-    for (ExecutableElement method : methods) {
-      MethodSpec generated = generateMethod(method, bdd);
+    for (ExecutableElement method : assertMethods) {
+      MethodSpec generated = generateAssertMethod(method, bdd);
+      if (generated != null) {
+        interfaceBuilder.addMethod(generated);
+      }
+    }
+
+    for (ExecutableElement method : throwableTypeMethods) {
+      MethodSpec generated = generateThrowableTypeMethod(method, bdd);
       if (generated != null) {
         interfaceBuilder.addMethod(generated);
       }
@@ -159,7 +173,7 @@ public class SoftAssertionProcessor extends AbstractProcessor {
     }
   }
 
-  private MethodSpec generateMethod(ExecutableElement sourceMethod, boolean bdd) {
+  private MethodSpec generateAssertMethod(ExecutableElement sourceMethod, boolean bdd) {
     String methodName = bdd
         ? toBddName(sourceMethod.getSimpleName().toString())
         : sourceMethod.getSimpleName().toString();
@@ -204,6 +218,77 @@ public class SoftAssertionProcessor extends AbstractProcessor {
     builder.addStatement("(($T) __result).softAssertionCollector = this",
         ClassName.get(API_PACKAGE, "AbstractAssert"));
     builder.addStatement("return __result");
+
+    return builder.build();
+  }
+
+  private MethodSpec generateThrowableTypeMethod(ExecutableElement sourceMethod, boolean bdd) {
+    String methodName = bdd
+        ? toBddName(sourceMethod.getSimpleName().toString())
+        : sourceMethod.getSimpleName().toString();
+
+    // Return SoftThrowableTypeAssert instead of ThrowableTypeAssert
+    ClassName softThrowableTypeAssert = ClassName.get(API_PACKAGE, "SoftThrowableTypeAssert");
+
+    // Determine the return type — preserve the type argument from ThrowableTypeAssert<T>
+    TypeMirror returnType = sourceMethod.getReturnType();
+    TypeName returnTypeName;
+    if (returnType instanceof DeclaredType declaredReturn && !declaredReturn.getTypeArguments().isEmpty()) {
+      TypeName typeArg = TypeName.get(declaredReturn.getTypeArguments().get(0));
+      returnTypeName = com.palantir.javapoet.ParameterizedTypeName.get(softThrowableTypeAssert, typeArg);
+    } else {
+      returnTypeName = softThrowableTypeAssert;
+    }
+
+    MethodSpec.Builder builder = MethodSpec.methodBuilder(methodName)
+        .addModifiers(Modifier.PUBLIC, Modifier.DEFAULT)
+        .returns(returnTypeName);
+
+    // Inherit javadoc
+    String docComment = processingEnv.getElementUtils().getDocComment(sourceMethod);
+    if (docComment != null) {
+      builder.addJavadoc(sanitizeJavadoc(docComment));
+    }
+
+    // Copy annotations (skip SafeVarargs)
+    for (var annotationMirror : sourceMethod.getAnnotationMirrors()) {
+      String annotationName = annotationMirror.getAnnotationType().asElement().getSimpleName().toString();
+      if (annotationName.equals("SafeVarargs")) continue;
+      builder.addAnnotation(AnnotationSpec.get(annotationMirror));
+    }
+
+    // Copy type parameters
+    for (var typeParam : sourceMethod.getTypeParameters()) {
+      builder.addTypeVariable(TypeVariableName.get(typeParam));
+    }
+
+    // Copy parameters
+    for (var param : sourceMethod.getParameters()) {
+      builder.addParameter(ParameterSpec.get(param));
+    }
+
+    // Generate body: create SoftThrowableTypeAssert
+    if (sourceMethod.getParameters().size() == 1) {
+      // assertThatExceptionOfType(Class<T> type) -> new SoftThrowableTypeAssert<>(type, this)
+      builder.addStatement("return new $T<>($L, this)", softThrowableTypeAssert,
+          sourceMethod.getParameters().get(0).getSimpleName());
+    } else if (sourceMethod.getParameters().isEmpty() && returnType instanceof DeclaredType declaredReturn
+               && !declaredReturn.getTypeArguments().isEmpty()) {
+      // Convenience methods like assertThatRuntimeException() -> assertThatExceptionOfType(RuntimeException.class)
+      // Extract the exception class from the return type argument
+      TypeMirror exceptionType = declaredReturn.getTypeArguments().get(0);
+      String assertThatExceptionMethod = bdd ? "thenExceptionOfType" : "assertThatExceptionOfType";
+      builder.addStatement("return $L($T.class)", assertThatExceptionMethod, TypeName.get(exceptionType));
+    } else {
+      // Fallback: delegate to Assertions static method
+      StringBuilder args = new StringBuilder();
+      for (var param : sourceMethod.getParameters()) {
+        if (!args.isEmpty()) args.append(", ");
+        args.append(param.getSimpleName());
+      }
+      builder.addStatement("return new $T<>(Assertions.$L($L), this)", softThrowableTypeAssert,
+          sourceMethod.getSimpleName(), args.toString());
+    }
 
     return builder.build();
   }
