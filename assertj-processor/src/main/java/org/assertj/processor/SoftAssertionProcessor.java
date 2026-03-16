@@ -16,7 +16,6 @@
 package org.assertj.processor;
 
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -27,131 +26,174 @@ import javax.annotation.processing.SupportedAnnotationTypes;
 import javax.annotation.processing.SupportedSourceVersion;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
-import javax.lang.model.type.MirroredTypeException;
+import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
+import javax.lang.model.util.ElementFilter;
 import javax.tools.Diagnostic;
-import javax.tools.JavaFileObject;
 
-import org.assertj.processor.api.SoftAssertionEntryPoint;
+import com.palantir.javapoet.AnnotationSpec;
+import com.palantir.javapoet.ClassName;
+import com.palantir.javapoet.JavaFile;
+import com.palantir.javapoet.MethodSpec;
+import com.palantir.javapoet.ParameterizedTypeName;
+import com.palantir.javapoet.TypeName;
+import com.palantir.javapoet.TypeSpec;
+import com.palantir.javapoet.TypeVariableName;
 
 /**
  * Annotation processor that generates soft assertion entry point interfaces.
  * <p>
- * Scans for {@link SoftAssertionEntryPoint} annotations on Assert classes and generates:
+ * Scans for concrete Assert classes in {@code org.assertj.core.api} that extend {@code AbstractAssert}
+ * and have a single-parameter constructor. Generates:
  * <ul>
- *   <li>{@code GeneratedStandardSoftAssertionsProvider} - interface with {@code assertThat()} methods</li>
- *   <li>{@code GeneratedBDDSoftAssertionsProvider} - interface with {@code then()} methods</li>
+ *   <li>{@code GeneratedStandardSoftAssertionsProvider} with {@code assertThat()} methods</li>
+ *   <li>{@code GeneratedBDDSoftAssertionsProvider} with {@code then()} methods</li>
  * </ul>
  */
-@SupportedAnnotationTypes("org.assertj.processor.api.SoftAssertionEntryPoint")
+@SupportedAnnotationTypes("*")
 @SupportedSourceVersion(SourceVersion.RELEASE_17)
 public class SoftAssertionProcessor extends AbstractProcessor {
 
-  private static final String PACKAGE = "org.assertj.core.api";
-  private static final String STANDARD_PROVIDER = "GeneratedStandardSoftAssertionsProvider";
-  private static final String BDD_PROVIDER = "GeneratedBDDSoftAssertionsProvider";
+  private static final String API_PACKAGE = "org.assertj.core.api";
+  private static final ClassName SOFT_ASSERTIONS_PROVIDER = ClassName.get(API_PACKAGE, "SoftAssertionsProvider");
+  private static final ClassName CHECK_RETURN_VALUE = ClassName.get("org.assertj.core.annotation", "CheckReturnValue");
+
+  private boolean generated = false;
 
   @Override
   public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-    if (annotations.isEmpty()) return false;
+    if (generated) return false;
+
+    processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE,
+        "SoftAssertionProcessor running, root elements: " + roundEnv.getRootElements().size());
 
     List<EntryPointInfo> entryPoints = new ArrayList<>();
 
-    for (Element element : roundEnv.getElementsAnnotatedWith(SoftAssertionEntryPoint.class)) {
+    for (Element element : roundEnv.getRootElements()) {
       if (!(element instanceof TypeElement typeElement)) continue;
+      if (typeElement.getKind() != ElementKind.CLASS) continue;
+      if (typeElement.getModifiers().contains(Modifier.ABSTRACT)) continue;
 
-      SoftAssertionEntryPoint annotation = typeElement.getAnnotation(SoftAssertionEntryPoint.class);
-      String assertClassName = typeElement.getQualifiedName().toString();
-      String simpleAssertName = typeElement.getSimpleName().toString();
+      String qualifiedName = typeElement.getQualifiedName().toString();
+      if (!qualifiedName.startsWith(API_PACKAGE + ".")) continue;
 
-      // Get the actual type via MirroredTypeException pattern
-      TypeMirror actualTypeMirror = getActualTypeMirror(annotation);
-      String actualTypeName = actualTypeMirror.toString();
+      String simpleName = typeElement.getSimpleName().toString();
+      if (!simpleName.endsWith("Assert")) continue;
+      if (simpleName.startsWith("Abstract")) continue;
+      if (simpleName.contains("SoftAssertions")) continue;
 
-      entryPoints.add(new EntryPointInfo(
-          assertClassName, simpleAssertName, actualTypeName,
-          annotation.methodName(), annotation.bddMethodName()));
+      // Check if it extends AbstractAssert (directly or transitively)
+      if (!extendsAbstractAssert(typeElement)) continue;
+
+      // Find single-parameter constructor
+      ExecutableElement constructor = findSingleParamConstructor(typeElement);
+      if (constructor == null) continue;
+
+      VariableElement param = constructor.getParameters().get(0);
+      TypeName actualType = TypeName.get(param.asType());
+
+      // Skip Assert classes with generic constructor parameters for now.
+      // These require complex type variable handling and are kept in the hand-written provider.
+      if (actualType instanceof ParameterizedTypeName || containsTypeVariables(actualType)) continue;
+
+      TypeName rawActualType = rawType(actualType);
+      ClassName assertClass = ClassName.get(typeElement);
+
+      entryPoints.add(new EntryPointInfo(assertClass, actualType, rawActualType));
     }
 
     if (!entryPoints.isEmpty()) {
-      generateProvider(STANDARD_PROVIDER, entryPoints, false);
-      generateProvider(BDD_PROVIDER, entryPoints, true);
+      writeInterface("GeneratedStandardSoftAssertionsProvider", entryPoints, "assertThat");
+      writeInterface("GeneratedBDDSoftAssertionsProvider", entryPoints, "then");
+      generated = true;
     }
 
-    return true;
+    return false;
   }
 
-  private TypeMirror getActualTypeMirror(SoftAssertionEntryPoint annotation) {
-    try {
-      annotation.actualType();
-      throw new IllegalStateException("Expected MirroredTypeException");
-    } catch (MirroredTypeException e) {
-      return e.getTypeMirror();
+  private boolean extendsAbstractAssert(TypeElement typeElement) {
+    TypeMirror superType = typeElement.getSuperclass();
+    while (superType.getKind() == TypeKind.DECLARED) {
+      TypeElement superElement = (TypeElement) ((DeclaredType) superType).asElement();
+      String name = superElement.getSimpleName().toString();
+      if (name.equals("AbstractAssert")) return true;
+      if (name.equals("Object")) return false;
+      superType = superElement.getSuperclass();
     }
+    return false;
   }
 
-  private void generateProvider(String className, List<EntryPointInfo> entryPoints, boolean bdd) {
-    String qualifiedName = PACKAGE + "." + className;
-
-    try {
-      JavaFileObject file = processingEnv.getFiler().createSourceFile(qualifiedName);
-      try (PrintWriter out = new PrintWriter(file.openWriter())) {
-        out.println("/*");
-        out.println(" * Licensed under the Apache License, Version 2.0 (the \"License\");");
-        out.println(" * you may not use this file except in compliance with the License.");
-        out.println(" * You may obtain a copy of the License at");
-        out.println(" *");
-        out.println(" * https://www.apache.org/licenses/LICENSE-2.0");
-        out.println(" */");
-        out.println("package " + PACKAGE + ";");
-        out.println();
-        out.println("import javax.annotation.processing.Generated;");
-        out.println();
-        out.println("import org.assertj.core.annotation.CheckReturnValue;");
-        out.println();
-        out.println("/**");
-        out.println(" * Generated soft assertions provider interface.");
-        if (bdd) {
-          out.println(" * Provides {@code then()} entry point methods for BDD-style soft assertions.");
-        } else {
-          out.println(" * Provides {@code assertThat()} entry point methods for soft assertions.");
-        }
-        out.println(" */");
-        out.println("@Generated(\"org.assertj.processor.SoftAssertionProcessor\")");
-        out.println("@CheckReturnValue");
-        out.println("public interface " + className + " extends SoftAssertionsProvider {");
-        out.println();
-
-        for (EntryPointInfo ep : entryPoints) {
-          String methodName = bdd ? ep.bddMethodName : ep.methodName;
-          out.println("  /**");
-          out.println("   * Creates a new soft assertion instance of {@link " + ep.simpleAssertName + "}.");
-          out.println("   *");
-          out.println("   * @param actual the actual value.");
-          out.println("   * @return the created assertion object.");
-          out.println("   */");
-          out.println("  default " + ep.simpleAssertName + " " + methodName + "(" + ep.actualTypeName + " actual) {");
-          out.println("    " + ep.simpleAssertName + " assertion = new " + ep.simpleAssertName + "(actual);");
-          out.println("    assertion.softAssertionCollector = this;");
-          out.println("    return assertion;");
-          out.println("  }");
-          out.println();
-        }
-
-        out.println("}");
+  private ExecutableElement findSingleParamConstructor(TypeElement typeElement) {
+    for (ExecutableElement constructor : ElementFilter.constructorsIn(typeElement.getEnclosedElements())) {
+      if (constructor.getParameters().size() == 1) {
+        return constructor;
       }
+    }
+    return null;
+  }
+
+  private void writeInterface(String interfaceName, List<EntryPointInfo> entryPoints, String methodName) {
+    TypeSpec.Builder interfaceBuilder = TypeSpec.interfaceBuilder(interfaceName)
+        .addModifiers(Modifier.PUBLIC)
+        .addSuperinterface(SOFT_ASSERTIONS_PROVIDER)
+        .addAnnotation(CHECK_RETURN_VALUE);
+
+    for (EntryPointInfo ep : entryPoints) {
+      MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder(methodName)
+          .addModifiers(Modifier.PUBLIC, Modifier.DEFAULT)
+          .returns(ep.assertClass)
+          .addParameter(ep.actualType, "actual")
+          .addStatement("return proxy($T.class, $T.class, actual)", ep.assertClass, ep.rawActualType)
+          .addJavadoc("Creates a new soft assertion instance of {@link $T}.\n", ep.assertClass)
+          .addJavadoc("\n")
+          .addJavadoc("@param actual the actual value.\n")
+          .addJavadoc("@return the created assertion object.\n");
+
+      interfaceBuilder.addMethod(methodBuilder.build());
+    }
+
+    JavaFile javaFile = JavaFile.builder(API_PACKAGE, interfaceBuilder.build())
+        .indent("  ")
+        .build();
+
+    try {
+      javaFile.writeTo(processingEnv.getFiler());
     } catch (IOException e) {
       processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
-          "Failed to generate " + qualifiedName + ": " + e.getMessage());
+          "Failed to generate " + interfaceName + ": " + e.getMessage());
     }
   }
 
-  private record EntryPointInfo(
-      String assertClassName,
-      String simpleAssertName,
-      String actualTypeName,
-      String methodName,
-      String bddMethodName) {
+  private static boolean containsTypeVariables(TypeName typeName) {
+    if (typeName instanceof TypeVariableName) return true;
+    if (typeName instanceof ParameterizedTypeName parameterized) {
+      return parameterized.typeArguments().stream().anyMatch(SoftAssertionProcessor::containsTypeVariables);
+    }
+    if (typeName instanceof com.palantir.javapoet.WildcardTypeName wildcard) {
+      return wildcard.upperBounds().stream().anyMatch(SoftAssertionProcessor::containsTypeVariables)
+          || wildcard.lowerBounds().stream().anyMatch(SoftAssertionProcessor::containsTypeVariables);
+    }
+    if (typeName instanceof com.palantir.javapoet.ArrayTypeName arrayType) {
+      return containsTypeVariables(arrayType.componentType());
+    }
+    return false;
   }
+
+  private static TypeName rawType(TypeName typeName) {
+    if (typeName instanceof com.palantir.javapoet.ParameterizedTypeName parameterized) {
+      return parameterized.rawType();
+    }
+    if (typeName instanceof com.palantir.javapoet.ArrayTypeName) {
+      return typeName; // arrays don't have raw types
+    }
+    return typeName;
+  }
+
+  private record EntryPointInfo(ClassName assertClass, TypeName actualType, TypeName rawActualType) {}
 }
