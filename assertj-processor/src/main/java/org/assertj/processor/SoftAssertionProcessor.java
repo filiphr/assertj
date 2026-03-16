@@ -26,31 +26,37 @@ import javax.annotation.processing.SupportedAnnotationTypes;
 import javax.annotation.processing.SupportedSourceVersion;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
-import javax.lang.model.type.MirroredTypeException;
+import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
+import javax.lang.model.util.ElementFilter;
 import javax.tools.Diagnostic;
 
-import com.palantir.javapoet.AnnotationSpec;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.JavaFile;
 import com.palantir.javapoet.MethodSpec;
+import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
+import com.palantir.javapoet.TypeVariableName;
 
-import org.assertj.processor.api.SoftAssertionEntryPoint;
+import org.assertj.processor.api.GenerateSoftAssertions;
 
 /**
- * Annotation processor that generates soft assertion entry point interfaces.
+ * Annotation processor that generates soft assertion entry point interfaces by scanning
+ * the {@code Assertions} class annotated with {@link GenerateSoftAssertions}.
  * <p>
- * Scans for {@link SoftAssertionEntryPoint} annotations on Assert classes and generates:
+ * For each {@code public static} method returning an {@code AbstractAssert} subtype, generates
+ * corresponding {@code default} methods in:
  * <ul>
- *   <li>{@code GeneratedStandardSoftAssertionsProvider} with {@code assertThat()} methods</li>
- *   <li>{@code GeneratedBDDSoftAssertionsProvider} with {@code then()} methods</li>
+ *   <li>{@code GeneratedStandardSoftAssertionsProvider} — same method names</li>
+ *   <li>{@code GeneratedBDDSoftAssertionsProvider} — with {@code then}/{@code thenCode}/{@code thenThrownBy} names</li>
  * </ul>
  */
-@SupportedAnnotationTypes("org.assertj.processor.api.SoftAssertionEntryPoint")
+@SupportedAnnotationTypes("org.assertj.processor.api.GenerateSoftAssertions")
 @SupportedSourceVersion(SourceVersion.RELEASE_17)
 public class SoftAssertionProcessor extends AbstractProcessor {
 
@@ -62,54 +68,62 @@ public class SoftAssertionProcessor extends AbstractProcessor {
   public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
     if (annotations.isEmpty()) return false;
 
-    List<EntryPointInfo> entryPoints = new ArrayList<>();
+    for (Element element : roundEnv.getElementsAnnotatedWith(GenerateSoftAssertions.class)) {
+      if (!(element instanceof TypeElement assertionsClass)) continue;
+      processAssertionsClass(assertionsClass);
+    }
 
-    for (Element element : roundEnv.getElementsAnnotatedWith(SoftAssertionEntryPoint.class)) {
-      if (!(element instanceof TypeElement typeElement)) continue;
+    return true;
+  }
 
-      SoftAssertionEntryPoint annotation = typeElement.getAnnotation(SoftAssertionEntryPoint.class);
-      ClassName assertClass = ClassName.get(typeElement);
-      TypeName actualType = TypeName.get(getActualTypeMirror(annotation));
+  private void processAssertionsClass(TypeElement assertionsClass) {
+    List<ExecutableElement> entryPoints = new ArrayList<>();
 
-      entryPoints.add(new EntryPointInfo(assertClass, actualType, annotation.methodName(), annotation.bddMethodName()));
+    for (ExecutableElement method : ElementFilter.methodsIn(assertionsClass.getEnclosedElements())) {
+      if (!method.getModifiers().contains(Modifier.PUBLIC)) continue;
+      if (!method.getModifiers().contains(Modifier.STATIC)) continue;
+
+      // Only include methods returning an AbstractAssert subtype
+      if (!returnsAbstractAssertSubtype(method)) continue;
+
+      entryPoints.add(method);
     }
 
     if (!entryPoints.isEmpty()) {
       writeInterface("GeneratedStandardSoftAssertionsProvider", entryPoints, false);
       writeInterface("GeneratedBDDSoftAssertionsProvider", entryPoints, true);
     }
-
-    return true;
   }
 
-  private TypeMirror getActualTypeMirror(SoftAssertionEntryPoint annotation) {
-    try {
-      annotation.actualType();
-      throw new IllegalStateException("Expected MirroredTypeException");
-    } catch (MirroredTypeException e) {
-      return e.getTypeMirror();
+  private boolean returnsAbstractAssertSubtype(ExecutableElement method) {
+    TypeMirror returnType = method.getReturnType();
+    return isAbstractAssertSubtype(returnType);
+  }
+
+  private boolean isAbstractAssertSubtype(TypeMirror type) {
+    if (type.getKind() != TypeKind.DECLARED) return false;
+    TypeElement element = (TypeElement) ((DeclaredType) type).asElement();
+    String name = element.getSimpleName().toString();
+    if (name.equals("AbstractAssert")) return true;
+    if (name.equals("Object")) return false;
+    TypeMirror superType = element.getSuperclass();
+    if (superType.getKind() == TypeKind.DECLARED) {
+      return isAbstractAssertSubtype(superType);
     }
+    return false;
   }
 
-  private void writeInterface(String interfaceName, List<EntryPointInfo> entryPoints, boolean bdd) {
+  private void writeInterface(String interfaceName, List<ExecutableElement> methods, boolean bdd) {
     TypeSpec.Builder interfaceBuilder = TypeSpec.interfaceBuilder(interfaceName)
         .addModifiers(Modifier.PUBLIC)
         .addSuperinterface(SOFT_ASSERTIONS_PROVIDER)
         .addAnnotation(CHECK_RETURN_VALUE);
 
-    for (EntryPointInfo ep : entryPoints) {
-      String methodName = bdd ? ep.bddMethodName : ep.methodName;
-      MethodSpec method = MethodSpec.methodBuilder(methodName)
-          .addModifiers(Modifier.PUBLIC, Modifier.DEFAULT)
-          .returns(ep.assertClass)
-          .addParameter(ep.actualType, "actual")
-          .addStatement("return proxy($T.class, $T.class, actual)", ep.assertClass, ep.actualType)
-          .addJavadoc("Creates a new soft assertion instance of {@link $T}.\n", ep.assertClass)
-          .addJavadoc("\n")
-          .addJavadoc("@param actual the actual value.\n")
-          .addJavadoc("@return the created assertion object.\n")
-          .build();
-      interfaceBuilder.addMethod(method);
+    for (ExecutableElement method : methods) {
+      MethodSpec generated = generateMethod(method, bdd);
+      if (generated != null) {
+        interfaceBuilder.addMethod(generated);
+      }
     }
 
     JavaFile javaFile = JavaFile.builder(API_PACKAGE, interfaceBuilder.build())
@@ -124,5 +138,55 @@ public class SoftAssertionProcessor extends AbstractProcessor {
     }
   }
 
-  private record EntryPointInfo(ClassName assertClass, TypeName actualType, String methodName, String bddMethodName) {}
+  private MethodSpec generateMethod(ExecutableElement sourceMethod, boolean bdd) {
+    String methodName = bdd ? toBddName(sourceMethod.getSimpleName().toString()) : sourceMethod.getSimpleName().toString();
+
+    MethodSpec.Builder builder = MethodSpec.methodBuilder(methodName)
+        .addModifiers(Modifier.PUBLIC, Modifier.DEFAULT)
+        .returns(TypeName.get(sourceMethod.getReturnType()));
+
+    // Copy type parameters
+    for (var typeParam : sourceMethod.getTypeParameters()) {
+      builder.addTypeVariable(TypeVariableName.get(typeParam));
+    }
+
+    // Copy parameters
+    StringBuilder proxyArgs = new StringBuilder();
+    for (var param : sourceMethod.getParameters()) {
+      builder.addParameter(ParameterSpec.get(param));
+      if (!proxyArgs.isEmpty()) proxyArgs.append(", ");
+      proxyArgs.append(param.getSimpleName());
+    }
+
+    // Generate body: delegate to the static Assertions method, then set the collector
+    String assertionsClass = "Assertions";
+    builder.addStatement("$T __result = $L.$L($L)",
+        TypeName.get(sourceMethod.getReturnType()),
+        assertionsClass,
+        sourceMethod.getSimpleName(),
+        proxyArgs.toString());
+    builder.addStatement("(($T) __result).softAssertionCollector = this",
+        ClassName.get(API_PACKAGE, "AbstractAssert"));
+    builder.addStatement("return __result");
+
+    return builder.build();
+  }
+
+  private static String toBddName(String assertThatName) {
+    if (assertThatName.equals("assertThat")) return "then";
+    if (assertThatName.equals("assertThatThrownBy")) return "thenThrownBy";
+    if (assertThatName.equals("assertThatCode")) return "thenCode";
+    if (assertThatName.equals("assertThatObject")) return "thenObject";
+    if (assertThatName.equals("assertThatCollection")) return "thenCollection";
+    if (assertThatName.equals("assertThatList")) return "thenList";
+    if (assertThatName.equals("assertThatIterable")) return "thenIterable";
+    if (assertThatName.equals("assertThatStream")) return "thenStream";
+    if (assertThatName.startsWith("assertThat")) {
+      // assertThatExceptionOfType -> thenExceptionOfType
+      String suffix = assertThatName.substring("assertThat".length());
+      return "then" + suffix;
+    }
+    // assertThat -> then for any remaining
+    return assertThatName.replace("assertThat", "then");
+  }
 }

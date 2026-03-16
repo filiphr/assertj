@@ -160,6 +160,7 @@ import org.assertj.core.util.introspection.Introspection;
  * @author William Delanoue
  */
 @CheckReturnValue
+@org.assertj.processor.api.GenerateSoftAssertions
 public class Assertions implements InstanceOfAssertFactories {
 
   static {

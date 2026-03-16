@@ -15,8 +15,6 @@
  */
 package org.assertj.core.api;
 
-import org.assertj.processor.api.SoftAssertionEntryPoint;
-
 /**
  * Assertion methods for {@code String}s.
  * <p>
@@ -24,7 +22,6 @@ import org.assertj.processor.api.SoftAssertionEntryPoint;
  *
  * @author Mikhail Mazursky
  */
-@SoftAssertionEntryPoint(actualType = String.class)
 public class StringAssert extends AbstractStringAssert<StringAssert> {
 
   public StringAssert(String actual) {
