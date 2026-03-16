@@ -67,8 +67,7 @@ public abstract class AbstractByteAssert<SELF extends AbstractByteAssert<SELF>> 
    * @throws AssertionError if the actual value is not equal to the given one.
    */
   public SELF isEqualTo(byte expected) {
-    bytes.assertEqual(info, actual, expected);
-    return myself;
+    return runSoftly(() -> bytes.assertEqual(info, actual, expected));
   }
 
   /**
@@ -89,29 +88,25 @@ public abstract class AbstractByteAssert<SELF extends AbstractByteAssert<SELF>> 
    * @throws AssertionError if the actual value is equal to the given one.
    */
   public SELF isNotEqualTo(byte other) {
-    bytes.assertNotEqual(info, actual, other);
-    return myself;
+    return runSoftly(() -> bytes.assertNotEqual(info, actual, other));
   }
 
   /** {@inheritDoc} */
   @Override
   public SELF isZero() {
-    bytes.assertIsZero(info, actual);
-    return myself;
+    return runSoftly(() -> bytes.assertIsZero(info, actual));
   }
 
   /** {@inheritDoc} */
   @Override
   public SELF isNotZero() {
-    bytes.assertIsNotZero(info, actual);
-    return myself;
+    return runSoftly(() -> bytes.assertIsNotZero(info, actual));
   }
 
   /** {@inheritDoc} */
   @Override
   public SELF isOne() {
-    bytes.assertIsOne(info, actual);
-    return myself;
+    return runSoftly(() -> bytes.assertIsOne(info, actual));
   }
 
   /**
@@ -127,8 +122,7 @@ public abstract class AbstractByteAssert<SELF extends AbstractByteAssert<SELF>> 
    */
   @Override
   public SELF isPositive() {
-    bytes.assertIsPositive(info, actual);
-    return myself;
+    return runSoftly(() -> bytes.assertIsPositive(info, actual));
   }
 
   /**
@@ -144,8 +138,7 @@ public abstract class AbstractByteAssert<SELF extends AbstractByteAssert<SELF>> 
    */
   @Override
   public SELF isNegative() {
-    bytes.assertIsNegative(info, actual);
-    return myself;
+    return runSoftly(() -> bytes.assertIsNegative(info, actual));
   }
 
   /**
@@ -161,8 +154,7 @@ public abstract class AbstractByteAssert<SELF extends AbstractByteAssert<SELF>> 
    */
   @Override
   public SELF isNotNegative() {
-    bytes.assertIsNotNegative(info, actual);
-    return myself;
+    return runSoftly(() -> bytes.assertIsNotNegative(info, actual));
   }
 
   /**
@@ -178,8 +170,7 @@ public abstract class AbstractByteAssert<SELF extends AbstractByteAssert<SELF>> 
    */
   @Override
   public SELF isNotPositive() {
-    bytes.assertIsNotPositive(info, actual);
-    return myself;
+    return runSoftly(() -> bytes.assertIsNotPositive(info, actual));
   }
 
   /**
@@ -200,8 +191,7 @@ public abstract class AbstractByteAssert<SELF extends AbstractByteAssert<SELF>> 
    * @since 3.17.0
    */
   public SELF isEven() {
-    bytes.assertIsEven(info, actual);
-    return myself;
+    return runSoftly(() -> bytes.assertIsEven(info, actual));
   }
 
   /**
@@ -222,8 +212,7 @@ public abstract class AbstractByteAssert<SELF extends AbstractByteAssert<SELF>> 
    * @since 3.17.0
    */
   public SELF isOdd() {
-    bytes.assertIsOdd(info, actual);
-    return myself;
+    return runSoftly(() -> bytes.assertIsOdd(info, actual));
   }
 
   /**
@@ -243,8 +232,7 @@ public abstract class AbstractByteAssert<SELF extends AbstractByteAssert<SELF>> 
    * @throws AssertionError if the actual value is equal to or greater than the given one.
    */
   public SELF isLessThan(byte other) {
-    bytes.assertLessThan(info, actual, other);
-    return myself;
+    return runSoftly(() -> bytes.assertLessThan(info, actual, other));
   }
 
   /**
@@ -264,8 +252,7 @@ public abstract class AbstractByteAssert<SELF extends AbstractByteAssert<SELF>> 
    * @throws AssertionError if the actual value is greater than the given one.
    */
   public SELF isLessThanOrEqualTo(byte other) {
-    bytes.assertLessThanOrEqualTo(info, actual, other);
-    return myself;
+    return runSoftly(() -> bytes.assertLessThanOrEqualTo(info, actual, other));
   }
 
   /**
@@ -285,8 +272,7 @@ public abstract class AbstractByteAssert<SELF extends AbstractByteAssert<SELF>> 
    * @throws AssertionError if the actual value is equal to or less than the given one.
    */
   public SELF isGreaterThan(byte other) {
-    bytes.assertGreaterThan(info, actual, other);
-    return myself;
+    return runSoftly(() -> bytes.assertGreaterThan(info, actual, other));
   }
 
   /**
@@ -306,8 +292,7 @@ public abstract class AbstractByteAssert<SELF extends AbstractByteAssert<SELF>> 
    * @throws AssertionError if the actual value is less than the given one.
    */
   public SELF isGreaterThanOrEqualTo(byte other) {
-    bytes.assertGreaterThanOrEqualTo(info, actual, other);
-    return myself;
+    return runSoftly(() -> bytes.assertGreaterThanOrEqualTo(info, actual, other));
   }
 
   /**
@@ -326,8 +311,7 @@ public abstract class AbstractByteAssert<SELF extends AbstractByteAssert<SELF>> 
    */
   @Override
   public SELF isBetween(Byte start, Byte end) {
-    bytes.assertIsBetween(info, actual, start, end);
-    return myself;
+    return runSoftly(() -> bytes.assertIsBetween(info, actual, start, end));
   }
 
   /**
@@ -346,8 +330,7 @@ public abstract class AbstractByteAssert<SELF extends AbstractByteAssert<SELF>> 
    */
   @Override
   public SELF isStrictlyBetween(Byte start, Byte end) {
-    bytes.assertIsStrictlyBetween(info, actual, start, end);
-    return myself;
+    return runSoftly(() -> bytes.assertIsStrictlyBetween(info, actual, start, end));
   }
 
   /**
@@ -384,8 +367,7 @@ public abstract class AbstractByteAssert<SELF extends AbstractByteAssert<SELF>> 
    * @throws AssertionError if the actual value is not close enough to the given one.
    */
   public SELF isCloseTo(byte expected, Offset<Byte> offset) {
-    bytes.assertIsCloseTo(info, actual, expected, offset);
-    return myself;
+    return runSoftly(() -> bytes.assertIsCloseTo(info, actual, expected, offset));
   }
 
   /**
@@ -420,8 +402,7 @@ public abstract class AbstractByteAssert<SELF extends AbstractByteAssert<SELF>> 
    * @since 2.6.0 / 3.6.0
    */
   public SELF isNotCloseTo(byte expected, Offset<Byte> offset) {
-    bytes.assertIsNotCloseTo(info, actual, expected, offset);
-    return myself;
+    return runSoftly(() -> bytes.assertIsNotCloseTo(info, actual, expected, offset));
   }
 
   /**
@@ -459,8 +440,7 @@ public abstract class AbstractByteAssert<SELF extends AbstractByteAssert<SELF>> 
    */
   @Override
   public SELF isCloseTo(Byte expected, Offset<Byte> offset) {
-    bytes.assertIsCloseTo(info, actual, expected, offset);
-    return myself;
+    return runSoftly(() -> bytes.assertIsCloseTo(info, actual, expected, offset));
   }
 
   /**
@@ -496,8 +476,7 @@ public abstract class AbstractByteAssert<SELF extends AbstractByteAssert<SELF>> 
    */
   @Override
   public SELF isNotCloseTo(Byte expected, Offset<Byte> offset) {
-    bytes.assertIsNotCloseTo(info, actual, expected, offset);
-    return myself;
+    return runSoftly(() -> bytes.assertIsNotCloseTo(info, actual, expected, offset));
   }
 
   /**
@@ -523,8 +502,7 @@ public abstract class AbstractByteAssert<SELF extends AbstractByteAssert<SELF>> 
    */
   @Override
   public SELF isCloseTo(Byte expected, Percentage percentage) {
-    bytes.assertIsCloseToPercentage(info, actual, expected, percentage);
-    return myself;
+    return runSoftly(() -> bytes.assertIsCloseToPercentage(info, actual, expected, percentage));
   }
 
   /**
@@ -549,8 +527,7 @@ public abstract class AbstractByteAssert<SELF extends AbstractByteAssert<SELF>> 
    */
   @Override
   public SELF isNotCloseTo(Byte expected, Percentage percentage) {
-    bytes.assertIsNotCloseToPercentage(info, actual, expected, percentage);
-    return myself;
+    return runSoftly(() -> bytes.assertIsNotCloseToPercentage(info, actual, expected, percentage));
   }
 
   /**
@@ -573,8 +550,7 @@ public abstract class AbstractByteAssert<SELF extends AbstractByteAssert<SELF>> 
    * @throws AssertionError if the actual value is close to the given one.
    */
   public SELF isCloseTo(byte expected, Percentage percentage) {
-    bytes.assertIsCloseToPercentage(info, actual, expected, percentage);
-    return myself;
+    return runSoftly(() -> bytes.assertIsCloseToPercentage(info, actual, expected, percentage));
   }
 
   /**
@@ -598,8 +574,7 @@ public abstract class AbstractByteAssert<SELF extends AbstractByteAssert<SELF>> 
    * @since 2.6.0 / 3.6.0
    */
   public SELF isNotCloseTo(byte expected, Percentage percentage) {
-    bytes.assertIsNotCloseToPercentage(info, actual, expected, percentage);
-    return myself;
+    return runSoftly(() -> bytes.assertIsNotCloseToPercentage(info, actual, expected, percentage));
   }
 
   @Override

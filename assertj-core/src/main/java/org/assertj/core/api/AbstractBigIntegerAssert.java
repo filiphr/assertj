@@ -54,8 +54,7 @@ public class AbstractBigIntegerAssert<SELF extends AbstractBigIntegerAssert<SELF
    */
   @Override
   public SELF isZero() {
-    bigIntegers.assertIsZero(info, actual);
-    return myself;
+    return runSoftly(() -> bigIntegers.assertIsZero(info, actual));
   }
 
   /**
@@ -73,8 +72,7 @@ public class AbstractBigIntegerAssert<SELF extends AbstractBigIntegerAssert<SELF
    */
   @Override
   public SELF isNotZero() {
-    bigIntegers.assertIsNotZero(info, actual);
-    return myself;
+    return runSoftly(() -> bigIntegers.assertIsNotZero(info, actual));
   }
 
   /**
@@ -92,8 +90,7 @@ public class AbstractBigIntegerAssert<SELF extends AbstractBigIntegerAssert<SELF
    */
   @Override
   public SELF isOne() {
-    bigIntegers.assertIsOne(info, actual);
-    return myself;
+    return runSoftly(() -> bigIntegers.assertIsOne(info, actual));
   }
 
   /**
@@ -111,8 +108,7 @@ public class AbstractBigIntegerAssert<SELF extends AbstractBigIntegerAssert<SELF
    */
   @Override
   public SELF isPositive() {
-    bigIntegers.assertIsPositive(info, actual);
-    return myself;
+    return runSoftly(() -> bigIntegers.assertIsPositive(info, actual));
   }
 
   /**
@@ -130,8 +126,7 @@ public class AbstractBigIntegerAssert<SELF extends AbstractBigIntegerAssert<SELF
    */
   @Override
   public SELF isNegative() {
-    bigIntegers.assertIsNegative(info, actual);
-    return myself;
+    return runSoftly(() -> bigIntegers.assertIsNegative(info, actual));
   }
 
   /**
@@ -149,8 +144,7 @@ public class AbstractBigIntegerAssert<SELF extends AbstractBigIntegerAssert<SELF
    */
   @Override
   public SELF isNotNegative() {
-    bigIntegers.assertIsNotNegative(info, actual);
-    return myself;
+    return runSoftly(() -> bigIntegers.assertIsNotNegative(info, actual));
   }
 
   /**
@@ -168,8 +162,7 @@ public class AbstractBigIntegerAssert<SELF extends AbstractBigIntegerAssert<SELF
    */
   @Override
   public SELF isNotPositive() {
-    bigIntegers.assertIsNotPositive(info, actual);
-    return myself;
+    return runSoftly(() -> bigIntegers.assertIsNotPositive(info, actual));
   }
 
   /**
@@ -213,8 +206,7 @@ public class AbstractBigIntegerAssert<SELF extends AbstractBigIntegerAssert<SELF
    */
   @Override
   public SELF isCloseTo(BigInteger expected, Offset<BigInteger> offset) {
-    bigIntegers.assertIsCloseTo(info, actual, expected, offset);
-    return myself;
+    return runSoftly(() -> bigIntegers.assertIsCloseTo(info, actual, expected, offset));
   }
 
   /**
@@ -260,8 +252,7 @@ public class AbstractBigIntegerAssert<SELF extends AbstractBigIntegerAssert<SELF
    */
   @Override
   public SELF isNotCloseTo(BigInteger expected, Offset<BigInteger> offset) {
-    bigIntegers.assertIsNotCloseTo(info, actual, expected, offset);
-    return myself;
+    return runSoftly(() -> bigIntegers.assertIsNotCloseTo(info, actual, expected, offset));
   }
 
   /**
@@ -291,8 +282,7 @@ public class AbstractBigIntegerAssert<SELF extends AbstractBigIntegerAssert<SELF
    */
   @Override
   public SELF isCloseTo(BigInteger expected, Percentage percentage) {
-    bigIntegers.assertIsCloseToPercentage(info, actual, expected, percentage);
-    return myself;
+    return runSoftly(() -> bigIntegers.assertIsCloseToPercentage(info, actual, expected, percentage));
   }
 
   /**
@@ -324,8 +314,7 @@ public class AbstractBigIntegerAssert<SELF extends AbstractBigIntegerAssert<SELF
    */
   @Override
   public SELF isNotCloseTo(BigInteger expected, Percentage percentage) {
-    bigIntegers.assertIsNotCloseToPercentage(info, actual, expected, percentage);
-    return myself;
+    return runSoftly(() -> bigIntegers.assertIsNotCloseToPercentage(info, actual, expected, percentage));
   }
 
   /**
@@ -345,8 +334,7 @@ public class AbstractBigIntegerAssert<SELF extends AbstractBigIntegerAssert<SELF
    */
   @Override
   public SELF isBetween(BigInteger start, BigInteger end) {
-    bigIntegers.assertIsBetween(info, actual, start, end);
-    return myself;
+    return runSoftly(() -> bigIntegers.assertIsBetween(info, actual, start, end));
   }
 
   /**
@@ -366,8 +354,7 @@ public class AbstractBigIntegerAssert<SELF extends AbstractBigIntegerAssert<SELF
    */
   @Override
   public SELF isStrictlyBetween(BigInteger start, BigInteger end) {
-    bigIntegers.assertIsStrictlyBetween(info, actual, start, end);
-    return myself;
+    return runSoftly(() -> bigIntegers.assertIsStrictlyBetween(info, actual, start, end));
   }
 
   /**

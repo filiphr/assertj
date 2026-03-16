@@ -61,8 +61,7 @@ public abstract class AbstractFutureAssert<SELF extends AbstractFutureAssert<SEL
    * @since 2.7.0 / 3.7.0
    */
   public SELF isCancelled() {
-    futures.assertIsCancelled(info, actual);
-    return myself;
+    return runSoftly(() -> futures.assertIsCancelled(info, actual));
   }
 
   /**
@@ -90,8 +89,7 @@ public abstract class AbstractFutureAssert<SELF extends AbstractFutureAssert<SEL
    * @since 2.7.0 / 3.7.0
    */
   public SELF isNotCancelled() {
-    futures.assertIsNotCancelled(info, actual);
-    return myself;
+    return runSoftly(() -> futures.assertIsNotCancelled(info, actual));
   }
 
   /**
@@ -126,8 +124,7 @@ public abstract class AbstractFutureAssert<SELF extends AbstractFutureAssert<SEL
    * @since 2.7.0 / 3.7.0
    */
   public SELF isDone() {
-    futures.assertIsDone(info, actual);
-    return myself;
+    return runSoftly(() -> futures.assertIsDone(info, actual));
   }
 
   /**
@@ -162,8 +159,7 @@ public abstract class AbstractFutureAssert<SELF extends AbstractFutureAssert<SEL
    * @since 2.7.0 / 3.7.0
    */
   public SELF isNotDone() {
-    futures.assertIsNotDone(info, actual);
-    return myself;
+    return runSoftly(() -> futures.assertIsNotDone(info, actual));
   }
 
   /**

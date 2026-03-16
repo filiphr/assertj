@@ -83,14 +83,12 @@ public class HashSetAssert<ELEMENT>
    */
   @Override
   public HashSetAssert<ELEMENT> isSubsetOf(Iterable<? extends ELEMENT> values) {
-    originalIterables.assertIsSubsetOf(info, actual, values);
-    return myself;
+    return runSoftly(() -> originalIterables.assertIsSubsetOf(info, actual, values));
   }
 
   @Override
   protected HashSetAssert<ELEMENT> isSubsetOfForProxy(ELEMENT[] values) {
-    originalIterables.assertIsSubsetOf(info, actual, Arrays.asList(values));
-    return myself;
+    return runSoftly(() -> originalIterables.assertIsSubsetOf(info, actual, Arrays.asList(values)));
   }
 
   private static class InHashSetComparisonStrategy extends StandardComparisonStrategy {

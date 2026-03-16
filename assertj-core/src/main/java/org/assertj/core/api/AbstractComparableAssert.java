@@ -45,57 +45,49 @@ public abstract class AbstractComparableAssert<SELF extends AbstractComparableAs
   /** {@inheritDoc} */
   @Override
   public SELF isEqualByComparingTo(ACTUAL other) {
-    comparables.assertEqualByComparison(info, actual, other);
-    return myself;
+    return runSoftly(() -> comparables.assertEqualByComparison(info, actual, other));
   }
 
   /** {@inheritDoc} */
   @Override
   public SELF isNotEqualByComparingTo(ACTUAL other) {
-    comparables.assertNotEqualByComparison(info, actual, other);
-    return myself;
+    return runSoftly(() -> comparables.assertNotEqualByComparison(info, actual, other));
   }
 
   /** {@inheritDoc} */
   @Override
   public SELF isLessThan(ACTUAL other) {
-    comparables.assertLessThan(info, actual, other);
-    return myself;
+    return runSoftly(() -> comparables.assertLessThan(info, actual, other));
   }
 
   /** {@inheritDoc} */
   @Override
   public SELF isLessThanOrEqualTo(ACTUAL other) {
-    comparables.assertLessThanOrEqualTo(info, actual, other);
-    return myself;
+    return runSoftly(() -> comparables.assertLessThanOrEqualTo(info, actual, other));
   }
 
   /** {@inheritDoc} */
   @Override
   public SELF isGreaterThan(ACTUAL other) {
-    comparables.assertGreaterThan(info, actual, other);
-    return myself;
+    return runSoftly(() -> comparables.assertGreaterThan(info, actual, other));
   }
 
   /** {@inheritDoc} */
   @Override
   public SELF isGreaterThanOrEqualTo(ACTUAL other) {
-    comparables.assertGreaterThanOrEqualTo(info, actual, other);
-    return myself;
+    return runSoftly(() -> comparables.assertGreaterThanOrEqualTo(info, actual, other));
   }
 
   /** {@inheritDoc} */
   @Override
   public SELF isBetween(ACTUAL startInclusive, ACTUAL endInclusive) {
-    comparables.assertIsBetween(info, actual, startInclusive, endInclusive, true, true);
-    return myself;
+    return runSoftly(() -> comparables.assertIsBetween(info, actual, startInclusive, endInclusive, true, true));
   }
 
   /** {@inheritDoc} */
   @Override
   public SELF isStrictlyBetween(ACTUAL startExclusive, ACTUAL endExclusive) {
-    comparables.assertIsBetween(info, actual, startExclusive, endExclusive, false, false);
-    return myself;
+    return runSoftly(() -> comparables.assertIsBetween(info, actual, startExclusive, endExclusive, false, false));
   }
 
   @Override

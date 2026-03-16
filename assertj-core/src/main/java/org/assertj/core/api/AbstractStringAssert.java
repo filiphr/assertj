@@ -72,8 +72,7 @@ public class AbstractStringAssert<SELF extends AbstractStringAssert<SELF>> exten
    * @since 3.11.0
    */
   public SELF isLessThan(String other) {
-    comparables.assertLessThan(info, actual, other);
-    return myself;
+    return runSoftly(() -> comparables.assertLessThan(info, actual, other));
   }
 
   /**
@@ -102,8 +101,7 @@ public class AbstractStringAssert<SELF extends AbstractStringAssert<SELF>> exten
    * @since 3.11.0
    */
   public SELF isLessThanOrEqualTo(String other) {
-    comparables.assertLessThanOrEqualTo(info, actual, other);
-    return myself;
+    return runSoftly(() -> comparables.assertLessThanOrEqualTo(info, actual, other));
   }
 
   /**
@@ -132,8 +130,7 @@ public class AbstractStringAssert<SELF extends AbstractStringAssert<SELF>> exten
    * @since 3.11.0
    */
   public SELF isGreaterThan(String other) {
-    comparables.assertGreaterThan(info, actual, other);
-    return myself;
+    return runSoftly(() -> comparables.assertGreaterThan(info, actual, other));
   }
 
   /**
@@ -162,8 +159,7 @@ public class AbstractStringAssert<SELF extends AbstractStringAssert<SELF>> exten
    * @since 3.11.0
    */
   public SELF isGreaterThanOrEqualTo(String other) {
-    comparables.assertGreaterThanOrEqualTo(info, actual, other);
-    return myself;
+    return runSoftly(() -> comparables.assertGreaterThanOrEqualTo(info, actual, other));
   }
 
   /**
@@ -196,8 +192,7 @@ public class AbstractStringAssert<SELF extends AbstractStringAssert<SELF>> exten
    * @since 3.11.0
    */
   public SELF isBetween(String startInclusive, String endInclusive) {
-    comparables.assertIsBetween(info, actual, startInclusive, endInclusive, true, true);
-    return myself;
+    return runSoftly(() -> comparables.assertIsBetween(info, actual, startInclusive, endInclusive, true, true));
   }
 
   /**
@@ -229,8 +224,7 @@ public class AbstractStringAssert<SELF extends AbstractStringAssert<SELF>> exten
    * @since 3.11.0
    */
   public SELF isStrictlyBetween(String startExclusive, String endExclusive) {
-    comparables.assertIsBetween(info, actual, startExclusive, endExclusive, false, false);
-    return myself;
+    return runSoftly(() -> comparables.assertIsBetween(info, actual, startExclusive, endExclusive, false, false));
   }
 
   /**
@@ -253,8 +247,7 @@ public class AbstractStringAssert<SELF extends AbstractStringAssert<SELF>> exten
    * @since 3.16.0
    */
   public SELF isBase64() {
-    strings.assertIsBase64(info, actual);
-    return myself;
+    return runSoftly(() -> strings.assertIsBase64(info, actual));
   }
 
   /**
@@ -299,8 +292,7 @@ public class AbstractStringAssert<SELF extends AbstractStringAssert<SELF>> exten
    * @since 4.0.0
    */
   public SELF isBase64Url() {
-    strings.assertIsBase64Url(info, actual);
-    return myself;
+    return runSoftly(() -> strings.assertIsBase64Url(info, actual));
   }
 
   /**

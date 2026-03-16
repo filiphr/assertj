@@ -42,9 +42,10 @@ public class AtomicBooleanAssert extends AbstractAssert<AtomicBooleanAssert, Ato
    * @since 2.7.0 / 3.7.0
    */
   public AtomicBooleanAssert isTrue() {
-    isNotNull();
-    assertEqual(true);
-    return myself;
+    return runSoftly(() -> {
+      isNotNull();
+      assertEqual(true);
+    });
   }
 
   /**
@@ -64,9 +65,10 @@ public class AtomicBooleanAssert extends AbstractAssert<AtomicBooleanAssert, Ato
    * @since 2.7.0 / 3.7.0
    */
   public AtomicBooleanAssert isFalse() {
-    isNotNull();
-    assertEqual(false);
-    return myself;
+    return runSoftly(() -> {
+      isNotNull();
+      assertEqual(false);
+    });
   }
 
   private void assertEqual(boolean expected) {
