@@ -220,15 +220,11 @@ public class SoftAssertionProcessor extends AbstractProcessor {
       proxyArgs.append(param.getSimpleName());
     }
 
-    // Generate body: delegate to the static Assertions method, then set the collector
-    builder.addStatement("$T __result = $L.$L($L)",
-        TypeName.get(sourceMethod.getReturnType()),
+    // Generate body: delegate to the static Assertions method, wrapped with soft()
+    builder.addStatement("return soft($L.$L($L))",
         "Assertions",
         sourceMethod.getSimpleName(),
         proxyArgs.toString());
-    builder.addStatement("(($T) __result).softAssertionCollector = this",
-        ClassName.get(API_PACKAGE, "AbstractAssert"));
-    builder.addStatement("return __result");
 
     return builder.build();
   }

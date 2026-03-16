@@ -64,6 +64,26 @@ public interface SoftAssertionsProvider extends AssertionErrorCollector {
   }
 
   /**
+   * Makes the given assertion instance soft-assertion-aware by setting its error collector to this provider.
+   * <p>
+   * This is used by the generated soft assertion providers to wrap calls to {@code Assertions} static methods:
+   * <pre><code class='java'> default StringAssert assertThat(String actual) {
+   *   return soft(Assertions.assertThat(actual));
+   * }</code></pre>
+   *
+   * @param <T> the assertion type
+   * @param assertion the assertion instance to make soft
+   * @return the same assertion instance, now collecting errors into this provider
+   */
+  @SuppressWarnings("rawtypes")
+  default <T> T soft(T assertion) {
+    if (assertion instanceof AbstractAssert abstractAssert) {
+      abstractAssert.softAssertionCollector = this;
+    }
+    return assertion;
+  }
+
+  /**
    * Verifies that no soft assertions have failed.
    *
    * @throws MultipleFailuresError if possible or SoftAssertionError if any proxied assertion objects threw an {@link AssertionError}
