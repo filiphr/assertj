@@ -201,10 +201,21 @@ public class SoftAssertionProcessor extends AbstractProcessor {
       builder.addTypeVariable(TypeVariableName.get(typeParam));
     }
 
-    // Copy parameters
+    // Copy parameters, preserving varargs on the last parameter
     StringBuilder proxyArgs = new StringBuilder();
-    for (var param : sourceMethod.getParameters()) {
-      builder.addParameter(ParameterSpec.get(param));
+    var params = sourceMethod.getParameters();
+    for (int i = 0; i < params.size(); i++) {
+      var param = params.get(i);
+      ParameterSpec paramSpec = ParameterSpec.get(param);
+      if (sourceMethod.isVarArgs() && i == params.size() - 1) {
+        // Rebuild with varargs flag — ParameterSpec.get() does not preserve it
+        paramSpec = ParameterSpec.builder(paramSpec.type(), paramSpec.name())
+            .addModifiers(paramSpec.modifiers().toArray(new Modifier[0]))
+            .addAnnotations(paramSpec.annotations())
+            .build();
+        builder.varargs(true);
+      }
+      builder.addParameter(paramSpec);
       if (!proxyArgs.isEmpty()) proxyArgs.append(", ");
       proxyArgs.append(param.getSimpleName());
     }
@@ -255,9 +266,19 @@ public class SoftAssertionProcessor extends AbstractProcessor {
       builder.addTypeVariable(TypeVariableName.get(typeParam));
     }
 
-    // Copy parameters
-    for (var param : sourceMethod.getParameters()) {
-      builder.addParameter(ParameterSpec.get(param));
+    // Copy parameters, preserving varargs on the last parameter
+    var params = sourceMethod.getParameters();
+    for (int i = 0; i < params.size(); i++) {
+      var param = params.get(i);
+      ParameterSpec paramSpec = ParameterSpec.get(param);
+      if (sourceMethod.isVarArgs() && i == params.size() - 1) {
+        paramSpec = ParameterSpec.builder(paramSpec.type(), paramSpec.name())
+            .addModifiers(paramSpec.modifiers().toArray(new Modifier[0]))
+            .addAnnotations(paramSpec.annotations())
+            .build();
+        builder.varargs(true);
+      }
+      builder.addParameter(paramSpec);
     }
 
     // Generate body: create SoftThrowableTypeAssert
