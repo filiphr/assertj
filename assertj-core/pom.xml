@@ -57,6 +57,13 @@
     </dependency>
     <!-- Provided -->
     <dependency>
+      <groupId>org.assertj</groupId>
+      <artifactId>assertj-processor</artifactId>
+      <version>${project.version}</version>
+      <scope>provided</scope>
+      <optional>true</optional>
+    </dependency>
+    <dependency>
       <groupId>org.hamcrest</groupId>
       <artifactId>hamcrest</artifactId>
       <scope>provided</scope>

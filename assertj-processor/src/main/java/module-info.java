@@ -13,22 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.assertj.core.api;
-
-import org.assertj.processor.api.SoftAssertionEntryPoint;
-
 /**
- * Assertion methods for {@code String}s.
- * <p>
- * To create a new instance of this class, invoke <code>{@link Assertions#assertThat(String)}</code>.
- *
- * @author Mikhail Mazursky
+ * Annotation processor for generating soft assertion entry point interfaces.
  */
-@SoftAssertionEntryPoint(actualType = String.class)
-public class StringAssert extends AbstractStringAssert<StringAssert> {
+module org.assertj.processor {
+  exports org.assertj.processor.api;
 
-  public StringAssert(String actual) {
-    super(actual, StringAssert.class);
-  }
+  requires java.compiler;
+  requires com.palantir.javapoet;
 
+  provides javax.annotation.processing.Processor
+      with org.assertj.processor.SoftAssertionProcessor;
 }

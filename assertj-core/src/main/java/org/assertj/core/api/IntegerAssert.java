@@ -17,6 +17,8 @@ package org.assertj.core.api;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.assertj.processor.api.SoftAssertionEntryPoint;
+
 /**
  * Assertion methods for {@link Integer}s.
  * <p>
