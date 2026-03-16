@@ -227,18 +227,11 @@ public class SoftAssertionProcessor extends AbstractProcessor {
         ? toBddName(sourceMethod.getSimpleName().toString())
         : sourceMethod.getSimpleName().toString();
 
-    // Return SoftThrowableTypeAssert instead of ThrowableTypeAssert
     ClassName softThrowableTypeAssert = ClassName.get(API_PACKAGE, "SoftThrowableTypeAssert");
 
-    // Determine the return type — preserve the type argument from ThrowableTypeAssert<T>
+    // Use the same return type as the source method (ThrowableTypeAssert<T>)
     TypeMirror returnType = sourceMethod.getReturnType();
-    TypeName returnTypeName;
-    if (returnType instanceof DeclaredType declaredReturn && !declaredReturn.getTypeArguments().isEmpty()) {
-      TypeName typeArg = TypeName.get(declaredReturn.getTypeArguments().get(0));
-      returnTypeName = com.palantir.javapoet.ParameterizedTypeName.get(softThrowableTypeAssert, typeArg);
-    } else {
-      returnTypeName = softThrowableTypeAssert;
-    }
+    TypeName returnTypeName = TypeName.get(returnType);
 
     MethodSpec.Builder builder = MethodSpec.methodBuilder(methodName)
         .addModifiers(Modifier.PUBLIC, Modifier.DEFAULT)
