@@ -64,6 +64,25 @@ public class SoftAssertionProcessor extends AbstractProcessor {
   private static final ClassName SOFT_ASSERTIONS_PROVIDER = ClassName.get(API_PACKAGE, "SoftAssertionsProvider");
   private static final ClassName CHECK_RETURN_VALUE = ClassName.get("org.assertj.core.annotation", "CheckReturnValue");
 
+  private static final String LICENSE_HEADER = """
+      /*
+       * Copyright 2012-2026 the original author or authors.
+       *
+       * Licensed under the Apache License, Version 2.0 (the "License");
+       * you may not use this file except in compliance with the License.
+       * You may obtain a copy of the License at
+       *
+       * https://www.apache.org/licenses/LICENSE-2.0
+       *
+       * Unless required by applicable law or agreed to in writing, software
+       * distributed under the License is distributed on an "AS IS" BASIS,
+       * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+       * See the License for the specific language governing permissions and
+       * limitations under the License.
+       */
+      """;
+
+
   @Override
   public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
     if (annotations.isEmpty()) return false;
@@ -82,8 +101,6 @@ public class SoftAssertionProcessor extends AbstractProcessor {
     for (ExecutableElement method : ElementFilter.methodsIn(assertionsClass.getEnclosedElements())) {
       if (!method.getModifiers().contains(Modifier.PUBLIC)) continue;
       if (!method.getModifiers().contains(Modifier.STATIC)) continue;
-
-      // Only include methods returning an AbstractAssert subtype
       if (!returnsAbstractAssertSubtype(method)) continue;
 
       entryPoints.add(method);
@@ -96,8 +113,7 @@ public class SoftAssertionProcessor extends AbstractProcessor {
   }
 
   private boolean returnsAbstractAssertSubtype(ExecutableElement method) {
-    TypeMirror returnType = method.getReturnType();
-    return isAbstractAssertSubtype(returnType);
+    return isAbstractAssertSubtype(method.getReturnType());
   }
 
   private boolean isAbstractAssertSubtype(TypeMirror type) {
@@ -131,7 +147,11 @@ public class SoftAssertionProcessor extends AbstractProcessor {
         .build();
 
     try {
-      javaFile.writeTo(processingEnv.getFiler());
+      var fileObject = processingEnv.getFiler().createSourceFile(API_PACKAGE + "." + interfaceName);
+      try (java.io.Writer writer = fileObject.openWriter()) {
+        writer.write(LICENSE_HEADER);
+        javaFile.writeTo(writer);
+      }
     } catch (IOException e) {
       processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
           "Failed to generate " + interfaceName + ": " + e.getMessage());
@@ -139,11 +159,19 @@ public class SoftAssertionProcessor extends AbstractProcessor {
   }
 
   private MethodSpec generateMethod(ExecutableElement sourceMethod, boolean bdd) {
-    String methodName = bdd ? toBddName(sourceMethod.getSimpleName().toString()) : sourceMethod.getSimpleName().toString();
+    String methodName = bdd
+        ? toBddName(sourceMethod.getSimpleName().toString())
+        : sourceMethod.getSimpleName().toString();
 
     MethodSpec.Builder builder = MethodSpec.methodBuilder(methodName)
         .addModifiers(Modifier.PUBLIC, Modifier.DEFAULT)
         .returns(TypeName.get(sourceMethod.getReturnType()));
+
+    // Inherit javadoc from the source method
+    String docComment = processingEnv.getElementUtils().getDocComment(sourceMethod);
+    if (docComment != null) {
+      builder.addJavadoc(sanitizeJavadoc(docComment));
+    }
 
     // Copy type parameters
     for (var typeParam : sourceMethod.getTypeParameters()) {
@@ -159,10 +187,9 @@ public class SoftAssertionProcessor extends AbstractProcessor {
     }
 
     // Generate body: delegate to the static Assertions method, then set the collector
-    String assertionsClass = "Assertions";
     builder.addStatement("$T __result = $L.$L($L)",
         TypeName.get(sourceMethod.getReturnType()),
-        assertionsClass,
+        "Assertions",
         sourceMethod.getSimpleName(),
         proxyArgs.toString());
     builder.addStatement("(($T) __result).softAssertionCollector = this",
@@ -170,6 +197,14 @@ public class SoftAssertionProcessor extends AbstractProcessor {
     builder.addStatement("return __result");
 
     return builder.build();
+  }
+
+  /**
+   * Sanitize javadoc for use with JavaPoet's {@code addJavadoc}.
+   * JavaPoet treats {@code $} as a format specifier, so we must escape it.
+   */
+  private static String sanitizeJavadoc(String docComment) {
+    return docComment.replace("$", "$$");
   }
 
   private static String toBddName(String assertThatName) {
@@ -182,11 +217,9 @@ public class SoftAssertionProcessor extends AbstractProcessor {
     if (assertThatName.equals("assertThatIterable")) return "thenIterable";
     if (assertThatName.equals("assertThatStream")) return "thenStream";
     if (assertThatName.startsWith("assertThat")) {
-      // assertThatExceptionOfType -> thenExceptionOfType
       String suffix = assertThatName.substring("assertThat".length());
       return "then" + suffix;
     }
-    // assertThat -> then for any remaining
     return assertThatName.replace("assertThat", "then");
   }
 }
