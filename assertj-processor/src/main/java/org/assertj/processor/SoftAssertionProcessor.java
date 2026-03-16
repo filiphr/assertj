@@ -35,6 +35,7 @@ import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
 import javax.tools.Diagnostic;
 
+import com.palantir.javapoet.AnnotationSpec;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.JavaFile;
 import com.palantir.javapoet.MethodSpec;
@@ -171,6 +172,14 @@ public class SoftAssertionProcessor extends AbstractProcessor {
     String docComment = processingEnv.getElementUtils().getDocComment(sourceMethod);
     if (docComment != null) {
       builder.addJavadoc(sanitizeJavadoc(docComment));
+    }
+
+    // Copy annotations from the source method, skipping inapplicable ones
+    for (var annotationMirror : sourceMethod.getAnnotationMirrors()) {
+      String annotationName = annotationMirror.getAnnotationType().asElement().getSimpleName().toString();
+      // @SafeVarargs requires final methods; default interface methods can't be final
+      if (annotationName.equals("SafeVarargs")) continue;
+      builder.addAnnotation(AnnotationSpec.get(annotationMirror));
     }
 
     // Copy type parameters
